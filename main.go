@@ -15,9 +15,12 @@ func main() {
 
 	router.Get("/", routes.RootHandler)
 	router.Post("/echo", routes.EchoHandler)
+
 	router.Get("/workflows", routes.GetWorkflowsHandler)
 	router.Post("/workflows", routes.CreateWorkflowHandler)
 	router.Post("/workflows/trigger", routes.TriggerWorkflowsHandler)
+
+	router.Get("/workflows/{workflowName}/jobs/{jobID}", routes.GetJobDefinitionHandler)
 
 	http.ListenAndServe(":8080", router)
 }
