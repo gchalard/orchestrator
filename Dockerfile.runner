@@ -1,0 +1,16 @@
+FROM golang:1.25-trixie AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+
+COPY --link . .
+
+RUN go build -o runner src/job/core.go
+
+FROM alpine:latest AS runner
+
+COPY --from=builder /app/runner /usr/local/bin/runner
+
+CMD ["runner"]
