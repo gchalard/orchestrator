@@ -85,7 +85,7 @@ func TriggerWorkflowsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, workflowJob := range jobs {
-		if err = service.SpawnJob(fmt.Sprintf("%s-%s", payload.WorkflowName, workflowJob.ID)); err != nil {
+		if err = service.SpawnJob(fmt.Sprintf("%s-%s", payload.WorkflowName, workflowJob.ID), workflowJob.Job.RunsOn); err != nil {
 			http.Error(w, fmt.Sprintf("failed to spawn job %s: %v", workflowJob.ID, err), http.StatusInternalServerError)
 			return
 		}

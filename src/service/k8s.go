@@ -48,7 +48,7 @@ func authN() (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
-func SpawnJob(jobID string) error {
+func SpawnJob(jobID, image_uri string) error {
 	clientset, err := authN()
 	if err != nil {
 		return fmt.Errorf("failed to authenticate against the kubernetes cluster: %w", err)
@@ -72,8 +72,8 @@ func SpawnJob(jobID string) error {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name:    "test-container",
-							Image:   "alpine:latest",
+							Name:    jobID,
+							Image:   image_uri,
 							Command: []string{"echo", "Hello, World!"},
 						},
 					},
