@@ -91,3 +91,28 @@ func SpawnJob(jobID, image_uri string) error {
 
 	return err
 }
+
+func GetJobStatus(jobID string) (string, error) {
+	clientset, err := authN()
+	if err != nil {
+		return "", fmt.Errorf("failed to authenticate against the kubernetes cluster: %w", err)
+	}
+
+	jobs := clientset.BatchV1().Jobs("default")
+	job, err := jobs.Get(context.TODO(), jobID, metav1.GetOptions{})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to get job: %w", err)
+	}
+
+	if job.Status.Active > 0 {
+		return "running", nil
+	} else if job.Status.Succeeded > 0 {
+		return "succeeded", nil
+	} else if job.Status.Failed > 0 {
+		return "failed", nil
+	} else {
+		return "pending", nil
+	}
+
+}
