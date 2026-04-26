@@ -48,7 +48,9 @@ func authN() (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
-func SpawnJob(jobID, image_uri string) error {
+func SpawnJob(workflowName, jobID, workflowRunId, image_uri string) error {
+	jobName := fmt.Sprintf("%s-%s-%s", workflowName, workflowRunId, jobID)
+	orchestratorEndpoint := os.Getenv("ORCHESTRATOR_ENDPOINT")
 	clientset, err := authN()
 	if err != nil {
 		return fmt.Errorf("failed to authenticate against the kubernetes cluster: %w", err)
@@ -59,22 +61,49 @@ func SpawnJob(jobID, image_uri string) error {
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobID,
+			Name:      jobName,
 			Namespace: "default",
 			Labels: map[string]string{
-				"app":    "orchestrator",
-				"type":   "job",
-				"job-id": jobID,
+				"app":             "pipeline-orchestrator",
+				"type":            "job",
+				"job-id":          jobName,
+				"workflow-name":   workflowName,
+				"workflow-run-id": workflowRunId,
+				"component":       "runner",
 			},
 		},
 		Spec: batchv1.JobSpec{
 			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":             "pipeline-orchestrator",
+						"type":            "job",
+						"job-id":          jobName,
+						"workflow-name":   workflowName,
+						"workflow-run-id": workflowRunId,
+						"component":       "runner",
+					},
+				},
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name:    jobID,
-							Image:   image_uri,
-							Command: []string{"echo", "Hello, World!"},
+							Name:            jobName,
+							Image:           image_uri,
+							ImagePullPolicy: v1.PullAlways,
+							Env: []v1.EnvVar{
+								{
+									Name:  "ORCHESTRATOR_ENDPOINT",
+									Value: orchestratorEndpoint,
+								},
+								{
+									Name:  "WORKFLOW_NAME",
+									Value: workflowName,
+								},
+								{
+									Name:  "JOB_ID",
+									Value: jobID,
+								},
+							},
 						},
 					},
 					RestartPolicy: v1.RestartPolicyNever,
