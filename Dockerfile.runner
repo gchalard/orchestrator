@@ -8,12 +8,20 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
-COPY --link . .
+COPY --link src/job/core.go .
 
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o runner src/job/core.go
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o runner core.go
 
 FROM alpine:latest AS runner
 
 COPY --from=builder /app/runner /usr/local/bin/runner
+
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache bash && \
+    addgroup -S runner && \
+    adduser -S runner -G runner
+
+USER runner
 
 CMD ["runner"]

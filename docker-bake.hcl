@@ -13,11 +13,15 @@ variable "TAG" {
   default = "latest"
 }
 
+variable "ENV_FLAG" {
+  default = "-dev"
+}
+
 target "orchestrator" {
   context = "."
   dockerfile = "Dockerfile.orchestrator"
   tags = [
-    "${REGISTRY}/orchestrator:${TAG}"
+    "${REGISTRY}/orchestrator:${TAG}${ENV_FLAG}"
   ]
 
   cache-from = [
@@ -35,7 +39,7 @@ target "runner" {
   context = "."
   dockerfile = "Dockerfile.runner"
   tags = [
-    "${REGISTRY}/runner:${TAG}"
+    "${REGISTRY}/runner:${TAG}${ENV_FLAG}"
   ]
 
   cache-from = [
