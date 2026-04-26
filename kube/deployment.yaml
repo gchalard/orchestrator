@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pipeline-orchestrator
+  labels:
+    app: pipeline-orchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pipeline-orchestrator
+      component: orchestrator
+  template:
+    metadata:
+      labels:
+        app: pipeline-orchestrator
+        component: orchestrator
+    spec:
+      serviceAccountName: pipeline-orchestrator
+      containers:
+        - name: pipeline-orchestrator
+          image: harbor.petite-patate.ovh/library/orchestrator:latest-dev
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ORCHESTRATOR_ENDPOINT
+              value: http://pipeline-orchestrator.default.svc.cluster.local:8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 1000m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
