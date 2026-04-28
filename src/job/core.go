@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
+	"sync"
 )
 
 func getJobDefinition(workflowName, jobID, orchestratorEndpoint string) ([]map[string]interface{}, error) {
@@ -68,12 +71,65 @@ func executeStep(step map[string]interface{}) error {
 	cmd.Dir = workingDirectory
 	cmd.Env = envVars
 
-	output, err := cmd.CombinedOutput()
+	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("failed to execute step: %w (output: %s)", err, string(output))
+		return fmt.Errorf("failed to open stdout pipe: %w", err)
 	}
 
-	log.Printf("step output:\t%s", string(output))
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to open stderr pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start step command: %w", err)
+	}
+
+	var wg sync.WaitGroup
+	var outputMu sync.Mutex
+	var outputBuilder strings.Builder
+	var streamErrMu sync.Mutex
+	var streamErr error
+
+	streamOutput := func(reader io.Reader) {
+		defer wg.Done()
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			line := scanner.Text()
+			log.Printf("step output:\t%s", line)
+
+			outputMu.Lock()
+			outputBuilder.WriteString(line)
+			outputBuilder.WriteByte('\n')
+			outputMu.Unlock()
+		}
+
+		if err := scanner.Err(); err != nil {
+			streamErrMu.Lock()
+			if streamErr == nil {
+				streamErr = err
+			}
+			streamErrMu.Unlock()
+		}
+	}
+
+	wg.Add(2)
+	go streamOutput(stdoutPipe)
+	go streamOutput(stderrPipe)
+
+	cmdErr := cmd.Wait()
+	wg.Wait()
+
+	if streamErr != nil {
+		return fmt.Errorf("failed to stream command output: %w", streamErr)
+	}
+
+	if cmdErr != nil {
+		outputMu.Lock()
+		output := outputBuilder.String()
+		outputMu.Unlock()
+		return fmt.Errorf("failed to execute step: %w (output: %s)", cmdErr, output)
+	}
 
 	return nil
 }
